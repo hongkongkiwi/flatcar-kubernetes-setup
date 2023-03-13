@@ -1,0 +1,57 @@
+#!/usr/bin/env bash -ue
+SCRIPT_DIR=$( cd -- "$( dirname -- "$(readlink -f "${BASH_SOURCE[0]}" || ${BASH_SOURCE[0]})" )" &> /dev/null && pwd )
+QEMU_DIR="$SCRIPT_DIR/../qemu-images"
+SCRIPTS_DIR="$SCRIPT_DIR"
+
+QEMU_FRESH_IMG_FILE="$QEMU_DIR/flatcar_production_qemu_uefi_image.img.fresh"
+QEMU_IMG_BZ2_FILE="$QEMU_DIR/flatcar_production_qemu_uefi_image.img.bz2"
+QEMU_IMG_FILE="$QEMU_DIR/flatcar_production_qemu_uefi_image.img"
+QEMU_START_SCRIPT="$QEMU_DIR/flatcar_production_qemu_uefi.sh"
+QEMU_CODE_FD="$QEMU_DIR/flatcar_production_qemu_uefi_efi_code.fd"
+QEMU_VARS_FD="$QEMU_DIR/flatcar_production_qemu_uefi_efi_vars.fd"
+
+WGET_ARGS="-q --show-progress"
+
+DL_ARCH="${1:-"$(arch)"}"
+
+TYPE="${2:-"beta"}"
+case "$TYPE" in
+  'alpha') TYPE="alpha";;
+  'beta') TYPE="beta";;
+  'stable') TYPE="stable";;
+  *) echo >&2 "ERROR: unknown type: $TYPE"; exit 1;;
+esac
+
+VERSION="${3:-"current"}"
+
+QEMU_HTTP_PATH="https://${TYPE}.release.flatcar-linux.net/${DL_ARCH}-usr/${VERSION}"
+
+if [ -f "$QEMU_FRESH_IMG_FILE" ]; then
+  read -p "Image already exists - overwrite? (y/n) " yn
+  case $yn in 
+	  yes|Y|y) ;;
+    *) exit 1;;
+  esac
+fi
+
+rm -f "$QEMU_START_SCRIPT" \
+      "$QEMU_IMG_FILE" \
+      "$QEMU_FRESH_IMG_FILE" \
+      "$QEMU_CODE_FD" \
+      "$QEMU_VARS_FD" \
+      "$QEMU_IMG_BZ2_FILE"
+
+echo "Downloading flatcar arch $DL_ARCH version $VERSION files ..."
+wget $WGET_ARGS -O "$QEMU_START_SCRIPT" \
+  "${QEMU_HTTP_PATH}/flatcar_production_qemu_uefi.sh"
+chmod +x "$QEMU_START_SCRIPT"
+wget $WGET_ARGS -O "$QEMU_IMG_BZ2_FILE" \
+  "${QEMU_HTTP_PATH}/flatcar_production_qemu_uefi_image.img.bz2"
+wget $WGET_ARGS -O "$QEMU_VARS_FD" \
+  "${QEMU_HTTP_PATH}/flatcar_production_qemu_uefi_efi_vars.fd"
+wget $WGET_ARGS -O "$QEMU_CODE_FD" \
+  "${QEMU_HTTP_PATH}/flatcar_production_qemu_uefi_efi_code.fd"
+echo "Extracting image ..."
+bzip2 -d "$QEMU_IMG_BZ2_FILE"
+mv "$QEMU_IMG_FILE" "$QEMU_FRESH_IMG_FILE"
+echo "Image download complete"

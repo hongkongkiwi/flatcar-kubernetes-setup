@@ -1,0 +1,179 @@
+# sudo journalctl --identifier=ignition --all --no-pager
+variant: flatcar
+version: 1.0.0
+ignition:
+  security:
+    tls:
+      certificate_authorities:
+        - local: certs/digitalocean-db-cert.pem
+storage:
+  directories:
+    - path: /etc/bash/bashrc.d
+    - path: /opt/certs
+    - path: /opt/bin
+    - path: /opt/etc
+    - path: /opt/share/nano
+    - path: /home/core/.kube
+      user:
+        name: core
+  files:
+    - path: /etc/bash/bashrc.d/term.sh
+      mode: 0744
+      overwrite: true
+      contents:
+        inline: |
+          export TERMINFO=/usr/share/terminfo
+          export TERM=xterm-256color
+    - path: /opt/rclone-install
+      mode: 0755
+      overwrite: true
+      user:
+        name: core
+      contents:
+        local: installers/rclone-install
+    # - path: /opt/aws-install
+    #   mode: 0755
+    #   overwrite: true
+    #   contents:
+    #     local: aws-install
+    # - path: /home/core/.aws_credentials
+    #   mode: 0644
+    #   overwrite: true
+    #   contents:
+    #     local: aws_credentials
+    # - path: /opt/awscliv2.zip
+    #   overwrite: true
+    #   mode: 0644
+    #   contents:
+    #     source: https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
+    # - path: /opt/awscliv2.zip
+    #   overwrite: true
+    #   mode: 0644
+    #   contents:
+    #     source: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    - path: /opt/k3d-install
+      mode: 0777
+      overwrite: true
+      user:
+        name: core
+      contents:
+        source: https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh
+    - path: /opt/certs/postgres-digitalocean-ca.pem
+      mode: 0644
+      overwrite: true
+      user:
+        name: core
+      contents:
+        local: certs/digitalocean-db-cert.pem
+    - path: /opt/bin/nano
+      overwrite: true
+      mode: 0755
+      contents:
+        source: https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/master/nano/nano-arm64
+    # - path: /opt/bin/nano
+    #   overwrite: true
+    #   mode: 0755
+    #   contents:
+    #     source: https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/master/nano/nano-x64
+    - path: /opt/share/nano/bash.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/bash.nanorc
+    - path: /opt/share/nano/sh.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/sh.nanorc
+    - path: /opt/share/nano/shlike.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/shlike.nanorc
+    - path: /opt/share/nano/yaml.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/yaml.nanorc
+    - path: /opt/share/nano/markdown.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/markdown.nanorc
+    - path: /opt/share/nano/js.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/js.nanorc
+    - path: /opt/share/nano/default.nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        source: https://github.com/serialhex/nano-highlight/raw/master/default.nanorc
+    - path: /etc/nanorc
+      overwrite: true
+      mode: 0644
+      contents:
+        local: etc/nanorc
+    - path: /opt/etc/k3d-cluster-config.yml
+      overwrite: true
+      mode: 0644
+      contents:
+        local: k3s-configs/k3s-server.yml
+systemd:
+  units:
+    - name: rclone-install.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Run rclone install script
+        Wants = network-online.target
+        After = network.target network-online.target     
+        ConditionPathExists=/opt/rclone-install
+        ConditionPathExists=!/usr/bin/rclone
+        [Service]
+        Type=forking
+        TimeoutStartSec=180
+        RemainAfterExit=yes
+        KillMode=process  
+        ExecStart=/usr/bin/bash -c "/opt/rclone-install"
+        [Install]
+        WantedBy=multi-user.target
+    - name: k3d-install.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Run k3d install script
+        Wants = network-online.target
+        After = network.target network-online.target        
+        ConditionPathExists=/opt/k3d-install
+        ConditionPathExists=!/opt/k3d
+        [Service]
+        Type=forking
+        TimeoutStartSec=180
+        RemainAfterExit=yes
+        KillMode=process
+        Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/opt/bin
+        Environment=USE_SUDO=true
+        Environment=K3D_INSTALL_DIR=/opt/bin
+        ExecStart=/usr/bin/bash -c "/opt/k3d-install"
+        [Install]
+        WantedBy=multi-user.target
+    - name: k3d-cluster-create.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Run k3d cluster create command
+        Wants = network-online.target k3d-install.service
+        After = network.target network-online.target k3d-install.service      
+        ConditionPathExists=/opt/bin/k3d
+        ConditionPathExists=/opt/etc/k3d-cluster-config.yml
+        [Service]
+        Type=forking
+        TimeoutStartSec=180
+        RemainAfterExit=yes
+        KillMode=process
+        Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/opt/bin
+        ExecStart=/opt/bin/k3d cluster create --config "/opt/etc/k3d-cluster-config.yml"
+        [Install]
+        WantedBy=multi-user.target

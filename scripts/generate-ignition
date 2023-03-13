@@ -1,0 +1,14 @@
+#!/usr/bin/env bash -ue
+SCRIPT_DIR=$( cd -- "$( dirname -- "$(readlink -f "${BASH_SOURCE[0]}" || ${BASH_SOURCE[0]})" )" &> /dev/null && pwd )
+BUTANE_DIR="$SCRIPT_DIR/../butane"
+FILES_DIR="$SCRIPT_DIR/../flatcar-files"
+TMP_DIR="$SCRIPT_DIR/../tmp"
+
+BUTANE_FILE="${1:-"$BUTANE_DIR/server-setup.yaml"}"
+IGN_FILE="${2:-"$TMP_DIR/config.ign"}"
+
+docker run --rm \
+           -v $FILES_DIR:/files \
+           -v "$BUTANE_FILE:/input.yaml" \
+           quay.io/coreos/butane:latest \
+             -d "/files" "/input.yaml" > "$IGN_FILE"

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash -ue
+SCRIPT_DIR=$( cd -- "$( dirname -- "$(readlink -f "${BASH_SOURCE[0]}" || ${BASH_SOURCE[0]})" )" &> /dev/null && pwd )
+
+TMP_DIR="$SCRIPT_DIR/../tmp"
+QEMU_DIR="$SCRIPT_DIR/../qemu-images"
+FILES_DIR="$SCRIPT_DIR/../flatcar-files"
+BUTANE_DIR="$SCRIPT_DIR/../butane"
+SCRIPTS_DIR="$SCRIPT_DIR"
+
+QEMU_FRESH_IMG_FILE="$QEMU_DIR/flatcar_production_qemu_uefi_image.img.fresh"
+QEMU_IMG_FILE="$QEMU_DIR/flatcar_production_qemu_uefi_image.img"
+QEMU_START_SCRIPT="$QEMU_DIR/flatcar_production_qemu_uefi.sh"
+IGN_GEN_SCRIPT="$SCRIPTS_DIR/generate-ignition"
+IGN_FILE="$TMP_DIR/config.ign"
+
+FRESH_IMAGE=""; [ "$1" == "--fresh" -o "$1" == "-fresh" ] && { FRESH_IMAGE="yes"; shift; }
+BUTANE_FILE="${1:-"$BUTANE_DIR/server-setup.yaml"}"
+AUTHORIZED_KEYS_FILE="${2:-"$FILES_DIR/authorized_keys"}"
+
+if [ ! -f "$BUTANE_FILE" ]; then
+  echo >&2 "ERROR: invalid butane file: $BUTANE_FILE"
+  exit 1
+fi
+"$IGN_GEN_SCRIPT" "$BUTANE_FILE" "$IGN_FILE" || { echo >&2 "ERROR: failed to generate ignition file"; exit 1; }
+
+IGN_FILE_ARG=""
+if [ -f "$IGN_FILE" ]; then
+  IGN_FILE_ARG="-i $IGN_FILE"
+else
+  echo >&2 "ERROR: ignition file missing: $IGN_FILE"
+  exit 1
+fi
+
+SSH_AUTH_FILE_ARG=""
+if [ -f "$AUTHORIZED_KEYS_FILE" ]; then
+  SSH_AUTH_FILE_ARG="-a $AUTHORIZED_KEYS_FILE"
+else
+  echo >&2 "WARNING: authorized_keys file missing: $AUTHORIZED_KEYS_FILE"
+fi
+
+if [ -n "$FRESH_IMAGE" -a ! -f "$QEMU_FRESH_IMG_FILE" ]; then
+  echo >&2 "ERROR: cannot find fresh image file: $QEMU_FRESH_IMG_FILE"
+  exit 1
+elif [ -n "$FRESH_IMAGE" -a -f "$QEMU_FRESH_IMG_FILE" ]; then
+  rm -f "$QEMU_IMG_FILE"
+  cp "$QEMU_FRESH_IMG_FILE" "$QEMU_IMG_FILE" 
+fi
+
+"$QEMU_START_SCRIPT" $IGN_FILE_ARG $SSH_AUTH_FILE_ARG -- -nographic

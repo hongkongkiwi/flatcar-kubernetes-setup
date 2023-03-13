@@ -1,0 +1,3 @@
+#!/bin/bash -ue
+CONFIG_FILE="${1:-"server-setup.yaml"}"
+docker run --rm -v $PWD/files:/files -v "$PWD/$CONFIG_FILE:/input.yaml" quay.io/coreos/butane:latest -d /files input.yaml > /dev/null
