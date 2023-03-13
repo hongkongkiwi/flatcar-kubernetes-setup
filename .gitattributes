@@ -1,0 +1,6 @@
+.gitattributes !filter !diff
+flatcar-files/k3s-configs/*.yaml filter=git-crypt diff=git-crypt
+flatcar-files/k3s-configs/*.yml filter=git-crypt diff=git-crypt
+flatcar-files/secrets/** filter=git-crypt diff=git-crypt
+flatcar-files/keys/** filter=git-crypt diff=git-crypt
+flatcar-files/authorized_keys filter=git-crypt diff=git-crypt
