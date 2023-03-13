@@ -1,0 +1,5 @@
+#!/bin/bash -ex
+unzip -q -o -d "/tmp" "/opt/awscliv2.zip"
+/tmp/aws/install -i "/opt/aws-cli" -b "/opt/bin"
+rm -Rf "/tmp/aws"
+rm -f "/opt/awscliv2.zip"
